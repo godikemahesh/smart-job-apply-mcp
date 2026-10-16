@@ -1,0 +1,73 @@
+{
+  "resume_path": "/path/to/your/resume.pdf",
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "phone": "+91-9876543210",
+  "location": "Bengaluru, Karnataka, India",
+  "experience_years": 3,
+  "credentials": {
+    "linkedin": {
+      "email": "",
+      "password": ""
+    },
+    "naukri": {
+      "email": "",
+      "password": ""
+    },
+    "wellfound": {
+      "email": "",
+      "password": ""
+    },
+    "indeed": {
+      "email": "",
+      "password": ""
+    },
+    "hirist": {
+      "email": "",
+      "password": ""
+    }
+  },
+  "autofill": {
+    "gender": "Female",
+    "date_of_birth": "01/01/1998",
+    "preferred_locations": [
+      "Bengaluru",
+      "Hyderabad",
+      "Pune",
+      "Remote"
+    ],
+    "notice_period": "15 days",
+    "notice_period_negotiable": "Yes",
+    "current_ctc": "8",
+    "expected_ctc": "14",
+    "total_experience": "3",
+    "primary_cloud": "AWS",
+    "last_working_day": "Immediate Joiner",
+    "current_status": "Looking for Opportunities",
+    "contract_based": "No",
+    "avoid_companies": [],
+    "certifications": [
+      "AWS Certified Solutions Architect",
+      "Certified Kubernetes Administrator (CKA)"
+    ],
+    "bio": "Experienced engineer with a proven track record of designing, deploying, and maintaining high-scale microservices, automated pipelines, and cloud native architectures.",
+    "why_join": "I am eager to contribute to high-impact challenges and bring my end-to-end engineering skills to accelerate your team's mission and product roadmap.",
+    "why_fit": "My hands-on technical experience with cloud platforms, automated deployments, and robust software engineering aligns seamlessly with the requirements of this role.",
+    "cover_letter": "Dear Hiring Manager,\n\nI am writing to express my strong enthusiasm for this role. With my background in building scalable architectures, optimizing systems, and delivering impactful technical solutions, I am confident in my ability to hit the ground running.\n\nThank you for your time and consideration.\n\nSincerely,\nJane Doe",
+    "experience": {
+      "python": "3",
+      "docker": "3",
+      "kubernetes": "2",
+      "aws": "3",
+      "linux": "3",
+      "git": "3",
+      "github": "3",
+      "ci/cd": "2",
+      "rest api": "3",
+      "sql": "3",
+      "postgresql": "2",
+      "fastapi": "2",
+      "terraform": "2"
+    }
+  }
+}

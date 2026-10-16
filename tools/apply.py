@@ -16,7 +16,13 @@ from playwright.async_api import Page, async_playwright
 from pathlib import Path
 
 from config import APP_DIR, AppConfig, get_user_agent, load_config
-from tools.session import load_cookies, save_cookies_from_context
+from tools.session import (
+    has_session,
+    launch_browser,
+    launch_persistent_context,
+    load_cookies,
+    save_cookies_from_context,
+)
 from tools.tracker import (
     count_recent_applications_for_company,
     is_already_applied,
@@ -26,6 +32,63 @@ from tools.tracker import (
 BROWSER_PROFILES_DIR = APP_DIR / "browser-profiles"
 
 logger = logging.getLogger(__name__)
+
+
+def _has_saved_login(platform: str) -> bool:
+    """Return True only when applying can start from a saved user login."""
+    platform = platform.lower().strip()
+    if platform == "linkedin":
+        profile_dir = BROWSER_PROFILES_DIR / "linkedin"
+        return profile_dir.is_dir() and any(profile_dir.iterdir())
+    return has_session(platform)
+
+
+def _missing_login_error(platform: str) -> str:
+    if platform == "linkedin":
+        return (
+            "No saved LinkedIn login profile found. Run save_session/interactive_login "
+            "for linkedin first, then retry. Real applications are blocked until "
+            "the browser is logged in to your account."
+        )
+    return (
+        f"No saved login session for {platform}. Run save_session/interactive_login "
+        f"for {platform} first, then retry. Real applications are blocked so they "
+        "cannot be submitted as guest/public forms."
+    )
+
+
+async def _looks_logged_out(page: Page, platform: str) -> bool:
+    """Best-effort guard against expired sessions before submitting."""
+    url = page.url.lower()
+    if platform == "linkedin":
+        if "/login" in url or "checkpoint" in url:
+            return True
+    elif platform == "indeed":
+        if "secure.indeed.com/auth" in url or "/account/login" in url:
+            return True
+    elif platform == "naukri":
+        if "/mnjuser/login" in url:
+            return True
+        login_apply = await page.query_selector("button#login-apply-button")
+        if login_apply and await login_apply.is_visible():
+            return True
+    else:
+        if "login" in url or "signin" in url or "sign-in" in url:
+            return True
+
+    try:
+        text = (await page.inner_text("body")).lower()
+    except Exception:
+        return False
+    logged_out_markers = (
+        "login to apply",
+        "sign in to apply",
+        "sign in to continue",
+        "log in to continue",
+        "please login",
+        "please log in",
+    )
+    return any(marker in text for marker in logged_out_markers)
 
 # ---------------------------------------------------------------------------
 # Smart form auto-filler
@@ -65,6 +128,24 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
         "city": af.get("preferred_locations", [""])[0] if af.get("preferred_locations") else cfg.location,
         "preferred location": af.get("preferred_locations", [""])[0] if af.get("preferred_locations") else cfg.location,
         "current location": cfg.location,
+        "bio": af.get("bio", ""),
+        "about": af.get("bio", ""),
+        "about me": af.get("bio", ""),
+        "summary": af.get("bio", ""),
+        "cover letter": af.get("cover_letter", af.get("bio", "")),
+        "cover note": af.get("cover_letter", af.get("bio", "")),
+        "why join": af.get("why_join", ""),
+        "why us": af.get("why_join", ""),
+        "why work": af.get("why_join", ""),
+        "why should we hire you": af.get("why_fit", ""),
+        "describe yourself": af.get("bio", ""),
+        "linkedin": af.get("linkedin", ""),
+        "linkedin url": af.get("linkedin", ""),
+        "linkedin profile": af.get("linkedin", ""),
+        "github": af.get("github", ""),
+        "github url": af.get("github", ""),
+        "portfolio": af.get("portfolio", ""),
+        "website": af.get("website", ""),
     }
     # Add experience keywords
     for k, v in af.get("experience", {}).items():
@@ -124,15 +205,16 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
                 if (parts.every(p => ctx.includes(p))) {
                     // Extra guard: don't fill "company name" with person name
                     if (key === "name" && (ctx.includes("company") || ctx.includes("job"))) continue;
-                    const nativeSetter = Object.getOwnPropertyDescriptor(
-                        window.HTMLInputElement.prototype, 'value'
-                    )?.set || Object.getOwnPropertyDescriptor(
-                        window.HTMLTextAreaElement.prototype, 'value'
-                    )?.set;
-                    if (nativeSetter) {
-                        nativeSetter.call(inp, val);
-                    } else {
-                        inp.value = val;
+                    try {
+                        const proto = inp.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                        if (setter) {
+                            setter.call(inp, val);
+                        } else {
+                            inp.value = val;
+                        }
+                    } catch (err) {
+                        try { inp.value = val; } catch (_) {}
                     }
                     triggerChange(inp);
                     filled++;
@@ -365,6 +447,76 @@ def _experience_answer(q: str, af: dict, exp_map: dict) -> str:
     return "0"
 
 
+def _generate_open_ended_answer(
+    question: str, af: dict, cfg: AppConfig, job_title: str = ""
+) -> str:
+    """
+    Intelligently answers open-ended subjective questions:
+    'Why do you want to join?', 'Describe yourself', 'Bio', 'Why are you a good fit?'.
+    Tries Groq LLM if API key is configured in environment for a job-specific answer,
+    or falls back to curated answers from config.
+    """
+    q = question.lower().strip()
+
+    # 1. Why join / why this company / why apply / what excites you
+    if re.search(r"why.*(join|work|company|us|apply|hire)|interest in.*(role|company|position)|what excites you", q):
+        if af.get("why_join"):
+            return af["why_join"]
+        return (
+            "I am excited by your company's focus and technical mission. My hands-on background in "
+            "Computer Vision, Deep Learning, and deploying AI models on edge hardware and cloud infrastructure "
+            "directly aligns with this role, and I am eager to contribute immediately."
+        )
+
+    # 2. Describe yourself / bio / tell me about yourself / summary / cover note
+    if re.search(r"describe yourself|about yourself|tell me about|bio|summary|introduction|profile summary|brief overview", q):
+        if af.get("bio"):
+            return af["bio"]
+        return (
+            "AI Engineer with experience designing and deploying end-to-end deep learning pipelines, "
+            "Computer Vision models (YOLO, SegFormer), and LLM/RAG solutions with production edge inference on NVIDIA Jetson."
+        )
+
+    # 3. Why are you a good fit / suitability / strengths
+    if re.search(r"why.*fit|good fit|suitable|qualif|strength", q):
+        if af.get("why_fit"):
+            return af["why_fit"]
+        return (
+            "My hands-on experience taking AI models from training to production deployment on edge hardware "
+            "and cloud environments directly matches the requirements of this role."
+        )
+
+    # 4. Try Groq dynamic completion if GROQ_API_KEYS is available
+    import os
+    groq_keys = os.getenv("GROQ_API_KEYS", os.getenv("GROQ_API_KEY", ""))
+    if groq_keys:
+        try:
+            from groq import Groq
+            keys = [k.strip() for k in groq_keys.split(",") if k.strip() and not k.startswith("gsk_your_")]
+            if keys:
+                client = Groq(api_key=keys[0])
+                model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+                prompt = (
+                    f"Candidate Profile: {cfg.name}, AI Engineer, 2 years experience in Computer Vision (PyTorch, YOLO, OpenCV) and LLMs (RAG, LangChain).\n"
+                    f"Job Title / Context: {job_title or 'AI Engineer'}\n"
+                    f"Question: {question}\n"
+                    f"Answer this job application question directly and concisely in 2-3 professional sentences. Do not use placeholders."
+                )
+                resp = client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=150,
+                    temperature=0.3,
+                )
+                ans = resp.choices[0].message.content.strip()
+                if ans and len(ans) > 10:
+                    return ans
+        except Exception:
+            pass
+
+    return af.get("bio", "Experienced AI Engineer specializing in Computer Vision, Deep Learning, and production model deployment.")
+
+
 def _classify_linkedin_text_answer(
     label: str, af: dict, exp_map: dict, cfg: AppConfig,
 ) -> str:
@@ -374,7 +526,7 @@ def _classify_linkedin_text_answer(
     chatbot classification logic so both platforms answer consistently.
     Never returns empty — always answers something rather than skip.
     """
-    q = label
+    q = label.lower().strip()
     if "current" in q and "ctc" in q:
         return str(af.get("current_ctc", "9"))
     if "expected" in q and ("ctc" in q or "salary" in q):
@@ -430,6 +582,9 @@ def _classify_linkedin_text_answer(
         return cfg.name
     if "age" in q:
         return "25"
+    # Open-ended questions (why join, bio, describe yourself, suitability)
+    if re.search(r"why.*(join|work|company|us|apply|hire)|interest in|describe yourself|about yourself|bio|summary|introduction|profile summary|why.*fit|good fit", q):
+        return _generate_open_ended_answer(label, af, cfg)
     # Never leave a question unanswered — default to Yes for anything else
     # (most unclassified Easy Apply screening questions are yes/no gates).
     return "Yes"
@@ -1273,6 +1428,9 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                 elif _re.search(r"certificat|certified", question):
                     certs = [c.lower() for c in af.get("certifications", [])]
                     value = "Yes" if any(c and c in question for c in certs) else "No"
+                # Open-ended questions (why join, bio, describe yourself, suitability)
+                elif _re.search(r"why.*(join|work|company|us|apply|hire)|interest in|describe yourself|about yourself|bio|summary|introduction|profile summary|why.*fit|good fit", question):
+                    value = _generate_open_ended_answer(question, af, cfg)
                 # Yes/No text questions (AFTER specific data fields) — narrower patterns
                 elif _re.search(r"comfortable|willing|ready|agree to|face to face|f2f|onsite|in.person|office|relocat|can you join|ok with|okay with", question):
                     value = "Yes"
@@ -1652,10 +1810,12 @@ async def apply_job(
     job_title: str = "",
     company: str = "",
     match_score: float = 0.0,
+    auto_login: bool = True,
 ) -> dict[str, Any]:
     """
     Automate a single job application.
-    Returns {success, error?, confirmation?}.
+    If login is missing and auto_login=True, prompts user with browser window to log in.
+    Returns {success, error?, confirmation?, login_required?}.
     """
     platform = platform.lower().strip()
     if platform not in PLATFORM_APPLYERS:
@@ -1668,13 +1828,39 @@ async def apply_job(
             "error": "Resume file not found. Set 'resume_path' in ~/.job-apply-mcp/config.json",
         }
 
+    # Verify or initiate user login before attempting to apply
+    if not _has_saved_login(platform):
+        if auto_login:
+            logger.info("No saved login for %s. Prompting user to log in now...", platform)
+            login_res = await interactive_login(platform)
+            if not login_res.get("success"):
+                return {
+                    "success": False,
+                    "login_required": True,
+                    "platform": platform,
+                    "error": (
+                        f"Login to {platform} is required before applying. "
+                        f"Browser was opened but login could not be confirmed. "
+                        f"Please call login_account(platform='{platform}') and complete sign-in."
+                    ),
+                    "action_required": f"login_account(platform='{platform}')",
+                }
+        else:
+            return {
+                "success": False,
+                "login_required": True,
+                "platform": platform,
+                "error": _missing_login_error(platform),
+                "action_required": f"login_account(platform='{platform}')",
+            }
+
     async with async_playwright() as pw:
         # LinkedIn needs persistent browser profile for auth
         if platform == "linkedin":
             profile_dir = str(BROWSER_PROFILES_DIR / "linkedin")
             Path(profile_dir).mkdir(parents=True, exist_ok=True)
-            context = await pw.firefox.launch_persistent_context(
-                profile_dir, headless=False,
+            context = await launch_persistent_context(
+                pw, profile_dir, headless=False,
                 viewport={"width": 1280, "height": 800},
             )
             page = context.pages[0] if context.pages else await context.new_page()
@@ -1687,7 +1873,7 @@ async def apply_job(
             await page.goto(job_url, wait_until="domcontentloaded", timeout=30_000)
             await page.wait_for_timeout(3000)
         else:
-            browser = await pw.firefox.launch(headless=False)
+            browser = await launch_browser(pw, headless=False)
             context = await browser.new_context(
                 user_agent=get_user_agent(),
                 viewport={"width": 1280, "height": 800},
@@ -1711,6 +1897,15 @@ async def apply_job(
                     "Please run save_session to log in manually, then retry."
                 ),
                 "captcha": True,
+            }
+        if await _looks_logged_out(page, platform):
+            await context.close() if is_persistent else await browser.close()
+            return {
+                "success": False,
+                "error": (
+                    f"{platform} session appears to be logged out or expired. "
+                    f"Run save_session/interactive_login for {platform}, then retry."
+                ),
             }
 
         applyer = PLATFORM_APPLYERS[platform]
@@ -1764,6 +1959,14 @@ async def _apply_in_tab(
 
         if await _detect_captcha(page):
             return {"success": False, "error": "CAPTCHA detected", "captcha": True}
+        if await _looks_logged_out(page, platform):
+            return {
+                "success": False,
+                "error": (
+                    f"{platform} session appears to be logged out or expired. "
+                    f"Run save_session/interactive_login for {platform}, then retry."
+                ),
+            }
 
         applyer = PLATFORM_APPLYERS.get(platform)
         if not applyer:
@@ -1854,6 +2057,28 @@ async def bulk_apply(
                 "applied": [], "skipped": skipped, "failed": [],
             }
 
+        authenticated_jobs: list[dict[str, Any]] = []
+        for job in to_apply:
+            platform = job.get("platform", "").lower().strip()
+            if not _has_saved_login(platform):
+                skipped.append({**job, "reason": _missing_login_error(platform)})
+                continue
+            authenticated_jobs.append(job)
+        to_apply = authenticated_jobs
+        if not to_apply:
+            return {
+                "summary": {
+                    "total_processed": len(applied) + len(skipped) + len(failed),
+                    "applied": len(applied),
+                    "skipped": len(skipped),
+                    "failed": len(failed),
+                    "dry_run": dry_run,
+                },
+                "applied": applied,
+                "skipped": skipped,
+                "failed": failed,
+            }
+
         # Split jobs: LinkedIn (persistent profile) vs others (shared context)
         linkedin_jobs = [j for j in to_apply if j.get("platform") == "linkedin"]
         other_jobs = [j for j in to_apply if j.get("platform") != "linkedin"]
@@ -1889,8 +2114,8 @@ async def bulk_apply(
             if linkedin_jobs:
                 profile_dir = str(BROWSER_PROFILES_DIR / "linkedin")
                 Path(profile_dir).mkdir(parents=True, exist_ok=True)
-                li_ctx = await pw.firefox.launch_persistent_context(
-                    profile_dir, headless=False,
+                li_ctx = await launch_persistent_context(
+                    pw, profile_dir, headless=False,
                     viewport={"width": 1280, "height": 800},
                 )
                 for i, job in enumerate(linkedin_jobs):
@@ -1901,7 +2126,7 @@ async def bulk_apply(
 
             # --- Other platform jobs: shared context ---
             if other_jobs:
-                browser = await pw.firefox.launch(headless=False)
+                browser = await launch_browser(pw, headless=False)
                 context = await browser.new_context(
                     user_agent=get_user_agent(),
                     viewport={"width": 1280, "height": 800},

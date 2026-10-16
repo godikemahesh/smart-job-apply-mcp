@@ -22,7 +22,7 @@ from pathlib import Path
 
 from config import APP_DIR, get_user_agent, load_config
 from tools.profile import PROFILE, compute_match_score, should_exclude, title_is_relevant
-from tools.session import load_cookies
+from tools.session import launch_browser, launch_persistent_context, load_cookies
 
 # Persistent browser profiles for platforms that need full auth (LinkedIn)
 BROWSER_PROFILES_DIR = APP_DIR / "browser-profiles"
@@ -108,7 +108,7 @@ def _linkedin_url(keywords: str, location: str, experience: int, days: int = 30)
     params = {
         "keywords": keywords,
         "location": location,
-        "f_E": "3,4",           # associate + mid-senior
+        "f_E": "1,2,3",         # internship, entry-level, associate (0-2 years exp)
         "f_AL": "true",         # Easy Apply only
         "sortBy": "DD",         # most recent
         "f_TPR": f"r{max(days, 1) * 86400}",
@@ -119,14 +119,11 @@ def _linkedin_url(keywords: str, location: str, experience: int, days: int = 30)
 def _naukri_url(keywords: str, location: str, experience: int, days: int = 30) -> str:
     kw_slug = keywords.lower().replace(" ", "-").replace(",", "-")
     loc_slug = location.lower().replace(" ", "-").replace(",", "")
-    # Use experience range: e.g. 3 years → search 3-5 year range
-    exp_min = experience
-    exp_max = experience + 2
-    return (
-        f"https://www.naukri.com/{kw_slug}-jobs-in-{loc_slug}"
-        f"?experience={exp_min}&nignbelow_salary=0&salary=0&salaryType=0"
-        f"&expmax={exp_max}"
-    )
+    exp_min = 0 if experience == 0 else 1
+    exp_max = 2
+    if loc_slug in ("remote", "all", "india", ""):
+        return f"https://www.naukri.com/{kw_slug}-jobs?experience={exp_min}&expmax={exp_max}"
+    return f"https://www.naukri.com/{kw_slug}-jobs-in-{loc_slug}?experience={exp_min}&expmax={exp_max}"
 
 
 def _wellfound_url(keywords: str, location: str, experience: int, days: int = 30) -> str:
@@ -911,8 +908,8 @@ async def search_linkedin_keywords(
 
     merged: dict[str, JobResult] = {}
     async with async_playwright() as pw:
-        ctx = await pw.firefox.launch_persistent_context(
-            profile_dir, headless=False, viewport={"width": 1280, "height": 800},
+        ctx = await launch_persistent_context(
+            pw, profile_dir, headless=False, viewport={"width": 1280, "height": 800},
         )
         try:
             page = ctx.pages[0] if ctx.pages else await ctx.new_page()
@@ -995,8 +992,8 @@ async def search_jobs(
             profile_dir = str(BROWSER_PROFILES_DIR / "linkedin")
             Path(profile_dir).mkdir(parents=True, exist_ok=True)
             try:
-                li_ctx = await pw.firefox.launch_persistent_context(
-                    profile_dir, headless=False,
+                li_ctx = await launch_persistent_context(
+                    pw, profile_dir, headless=False,
                     viewport={"width": 1280, "height": 800},
                 )
                 li_page = li_ctx.pages[0] if li_ctx.pages else await li_ctx.new_page()
@@ -1010,7 +1007,7 @@ async def search_jobs(
 
         # --- Other platforms: shared browser context ---
         if other_platforms:
-            browser = await pw.firefox.launch(headless=False)
+            browser = await launch_browser(pw, headless=False)
             context = await browser.new_context(
                 user_agent=get_user_agent(),
                 viewport={"width": 1280, "height": 800},

@@ -15,95 +15,121 @@ class CandidateProfile:
     Default candidate profile — DevOps / AI-ML Engineer template.
     Users override these values via ~/.job-apply-mcp/config.json
     """
-    title: str = "DevOps and AI/ML Engineer"
-    experience_years: int = 4
+    title: str = "AI / Computer Vision / GenAI Engineer"
+    experience_years: int = 2
     location: str = "India"
     preferred_locations: tuple[str, ...] = (
+        "Hyderabad",
         "Remote",
         "Bangalore",
         "Bengaluru",
-        "Hyderabad",
         "Pune",
-        "Delhi",
-        "Mumbai",
-        "Noida",
-        "Gurgaon",
-        "Gurugram",
     )
     skills: tuple[str, ...] = (
-        "GCP",
-        "Azure",
-        "AWS",
-        "Terraform",
-        "Kubernetes",
-        "Docker",
-        "GitLab CI/CD",
-        "GitHub Actions",
-        "Jenkins",
-        "Azure DevOps",
-        "Prometheus",
-        "Grafana",
         "Python",
-        "Bash",
-        "PowerShell",
-        "Ollama",
-        "RAG",
+        "PyTorch",
+        "Computer Vision",
+        "OpenCV",
+        "Deep Learning",
+        "Machine Learning",
+        "YOLOv8",
+        "YOLOv9",
+        "YOLOv10",
+        "SegFormer",
+        "DeepLabV3",
+        "FastAPI",
+        "Streamlit",
         "LangChain",
-        "QLoRA",
+        "Agentic AI",
+        "RAG",
+        "LLMs",
+        "Generative AI",
+        "Prompt Engineering",
         "LoRA",
-        "MCP Tools",
+        "PEFT",
+        "Fine-tuning",
+        "Hugging Face",
+        "Transformers",
+        "TensorRT",
+        "ONNX",
+        "NVIDIA Jetson",
+        "Docker",
+        "AWS",
+        "Bedrock",
+        "SageMaker",
         "FAISS",
         "ChromaDB",
-        "LLMs",
-        "NLP",
-        "Generative AI",
-        "SonarQube",
-        "Snyk",
-        "Trivy",
-        "SBOM",
-        "Cloud SQL",
-        "BigQuery",
-        "MySQL",
-        "Firestore",
-        "Secret Manager",
-        "IAM",
-        "AKS",
-        "GKE",
-        "Fargate",
+        "Pinecone",
+        "Linux",
+        "Git",
+        "GitHub",
+        "REST API",
+        "NumPy",
+        "Pandas",
+        "Scikit-learn",
     )
     target_roles: tuple[str, ...] = (
-        "MLOps Engineer",
-        "LLMOps Engineer",
-        "Platform Engineer GenAI",
-        "DevOps Engineer",
-        "Site Reliability Engineer",
-        "AI Platform Engineer",
-        "Cloud DevOps Engineer",
-        "GenAI Infrastructure Engineer",
+        "AI Engineer",
+        "Computer Vision Engineer",
+        "Machine Learning Engineer",
+        "ML Engineer",
+        "GenAI Engineer",
+        "LLM Engineer",
+        "Agentic AI Engineer",
+        "Forward Deployed Engineer",
+        "Deep Learning Engineer",
+        "Edge AI Engineer",
+        "AI/ML Engineer",
     )
     default_search_keywords: tuple[str, ...] = (
-        "DevOps Engineer",
-        "MLOps Engineer",
-        "LLMOps Engineer",
-        "Platform Engineer GenAI",
-        "Cloud DevOps AI",
-        "GenAI Infrastructure Engineer",
-        "Site Reliability Engineer",
+        "AI Engineer",
+        "Computer Vision Engineer",
+        "Machine Learning Engineer",
+        "GenAI Engineer",
+        "LLM Engineer",
+        "Deep Learning Engineer",
+        "Forward Deployed Engineer",
     )
     # Hard title gate: a job's title must contain at least one of these
-    # substrings to be considered at all, regardless of skill-overlap score.
-    # This stops loosely-related roles (Data Engineer, Backend Developer,
-    # IT helpdesk "Systems Engineer") from slipping through on fuzzy score
-    # alone just because their descriptions mention overlapping tools.
+    # substrings to be considered at all.
     title_must_contain: tuple[str, ...] = (
-        "devops",
-        "sre",
-        "site reliability",
-        "cloud engineer",
-        "systems engineer",
-        "platform engineer",
+        "ai",
+        "artificial intelligence",
+        "computer vision",
+        "vision",
+        "machine learning",
+        "ml",
+        "deep learning",
+        "genai",
+        "generative ai",
+        "llm",
+        "agentic",
+        "forward deployed",
+        "edge ai",
+        "nlp",
+        "pytorch",
+        "data science",
     )
     avoid_keywords: tuple[str, ...] = (
+        "senior",
+        "sr.",
+        "sr ",
+        "lead",
+        "staff",
+        "principal",
+        "architect",
+        "director",
+        "manager",
+        "mentor",
+        "trainer",
+        "tutor",
+        "teacher",
+        "instructor",
+        "teleoperator",
+        "artist",
+        "editor",
+        "content creator",
+        "graphic designer",
         "frontend",
         "react developer",
         "angular developer",
@@ -113,20 +139,18 @@ class CandidateProfile:
         "swift",
         "kotlin",
         "flutter",
-        "data scientist",
-        "pytorch training",
-        "tensorflow training",
-        "deep learning researcher",
         "end-user support",
         "end user support",
         "helpdesk",
         "help desk",
         "desktop support",
         "service desk",
-        "geographic information system",
         "noc technician",
         "l1 support",
         "l2 support",
+        "telecaller",
+        "bpo",
+        "sales executive",
     )
 
 
@@ -218,17 +242,55 @@ def compute_match_score(
     return round(max(0.0, min(score, 1.0)), 3)
 
 
+def is_experience_too_high(title: str, desc: str) -> tuple[bool, str]:
+    """Return True if the job requires 3+ years experience or senior/lead level."""
+    t = (title or "").lower()
+    d = (desc or "").lower()
+
+    # 1. Senior / Lead / Principal titles
+    if re.search(r'\b(sr\.?|senior|lead|principal|staff|architect|director|manager|head\s+of|vp)\b', t):
+        return True, "Senior/Lead title"
+    if re.search(r'\b([3-9]|\d{2,})\s*\+?\s*(?:to|-)?\s*\d*\s*years?\b', t):
+        return True, "Title requires 3+ years experience"
+
+    # 2. Check Description for explicitly high experience requirements (>= 3 years)
+    high_exp_patterns = [
+        r'\b([3-9]|\d{2,})\s*\+?\s*(?:to|-)\s*\d+\s*(?:years?|yrs?)(?:\s+of)?\s+(?:relevant\s+|industry\s+|work\s+)?exp',
+        r'\b([3-9]|\d{2,})\s*(?:\+|plus)\s*(?:years?|yrs?)(?:\s+of)?\s+(?:relevant\s+|industry\s+|work\s+)?exp',
+        r'(?:minimum|at least|min\.?)\s*([3-9]|\d{2,})\s*(?:years?|yrs?)',
+        r'\bexp(?:erience)?\s*[:\-]?\s*([3-9]|\d{2,})\s*(?:\+|plus)?\s*(?:to|-)?\s*\d*\s*(?:years?|yrs?)',
+        r'\b([3-9]|\d{2,})\s*(?:years?|yrs?)(?:\s+of)?\s+(?:relevant\s+|proven\s+|hands\-on\s+)?experience\b',
+    ]
+    for pat in high_exp_patterns:
+        m = re.search(pat, d)
+        if m:
+            # Check if this is an acceptable entry range like '0-3 years' or '1-3 years'
+            span = d[max(0, m.start()-12):min(len(d), m.end()+12)]
+            if re.search(r'\b(?:0|1|2)\s*(?:to|-)\s*3\b', span):
+                continue
+            return True, f"High experience required: {m.group(0)}"
+
+    return False, "OK"
+
+
 def should_exclude(
     job_title: str,
     job_description: str,
     required_skills: list[str] | None = None,
     profile: CandidateProfile = PROFILE,
 ) -> bool:
-    """Return True if the job is in an excluded category."""
-    combined = _normalize(f"{job_title} {job_description}")
+    """Return True if the job is in an excluded category or requires >2 years exp."""
+    too_high, _ = is_experience_too_high(job_title, job_description)
+    if too_high:
+        return True
+
+    norm_title = _normalize(job_title)
+    # Check title specifically for avoid keywords
     for kw in profile.avoid_keywords:
-        if _normalize(kw) in combined:
+        kw_norm = _normalize(kw)
+        if re.search(r'\b' + re.escape(kw_norm) + r'\b', norm_title):
             return True
+
     return False
 
 
@@ -239,4 +301,6 @@ def title_is_relevant(job_title: str, profile: CandidateProfile = PROFILE) -> bo
     can't pass just by scoring well on skill overlap.
     """
     norm = _normalize(job_title)
+    # Must match at least one relevant keyword
     return any(kw in norm for kw in profile.title_must_contain)
+

@@ -1,7 +1,7 @@
 """
-Configuration loader for job-apply-mcp.
+Configuration loader for smart-job-apply-mcp.
 
-Reads and writes ~/.job-apply-mcp/config.json which stores:
+Reads and writes ~/.smart-job-apply-mcp/config.json (with fallback to ~/.job-apply-mcp) which stores:
   - resume_path        : absolute path to the resume PDF
   - name               : candidate full name
   - email              : candidate email
@@ -19,7 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-APP_DIR = Path.home() / ".job-apply-mcp"
+# Primary app directory with backward compatibility
+NEW_APP_DIR = Path.home() / ".smart-job-apply-mcp"
+OLD_APP_DIR = Path.home() / ".job-apply-mcp"
+APP_DIR = NEW_APP_DIR if (NEW_APP_DIR.exists() or not OLD_APP_DIR.exists()) else OLD_APP_DIR
 CONFIG_PATH = APP_DIR / "config.json"
 SESSIONS_DIR = APP_DIR / "sessions"
 DB_PATH = APP_DIR / "applications.db"

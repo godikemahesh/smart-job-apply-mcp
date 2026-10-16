@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tools.session import interactive_login, SUPPORTED_PLATFORMS
+from tools.session import check_all_sessions, interactive_login, SUPPORTED_PLATFORMS
 from tools.search import search_jobs, filter_jobs
 from tools.apply import bulk_apply
 from tools.tracker import get_application_summary
@@ -19,17 +19,18 @@ from tools.tracker import get_application_summary
 
 def show_menu():
     print()
-    print("=" * 50)
-    print("  Job Apply MCP — Standalone Runner")
-    print("=" * 50)
+    print("=" * 55)
+    print("  Smart Job Apply MCP — Standalone Interactive Runner")
+    print("=" * 55)
     print()
-    print("  1. Login to a platform (save session)")
-    print("  2. Search & Apply for jobs")
-    print("  3. View application status")
-    print("  4. Search only (no apply)")
-    print("  5. Exit")
+    print("  1. Check login status (all platforms)")
+    print("  2. Login to a platform (save session)")
+    print("  3. Search & Apply for jobs")
+    print("  4. View application status history")
+    print("  5. Search only (browse matches)")
+    print("  6. Exit")
     print()
-    return input("  Choose [1-5]: ").strip()
+    return input("  Choose [1-6]: ").strip()
 
 
 def get_platforms():
@@ -161,18 +162,31 @@ def do_status():
                 print(f"    - {a['job_title']} @ {a['company']}")
 
 
+def do_check_login_status():
+    print("\n  Checking session status across all platforms...")
+    res = check_all_sessions()
+    print(f"  Platforms Ready: {res['logged_in_count']} / {res['total_checked']}\n")
+    for plat, data in res["platforms"].items():
+        status = "LOGGED IN (Ready)" if data.get("logged_in") else "NOT LOGGED IN"
+        icon = "[OK]" if data.get("logged_in") else "[--]"
+        print(f"    {icon} {plat:12s}: {status} ({data.get('hint', '')})")
+    print()
+
+
 async def main():
     while True:
         choice = show_menu()
         if choice == "1":
-            await do_login()
+            do_check_login_status()
         elif choice == "2":
-            await do_search_and_apply()
+            await do_login()
         elif choice == "3":
-            do_status()
+            await do_search_and_apply()
         elif choice == "4":
-            await do_search_only()
+            do_status()
         elif choice == "5":
+            await do_search_only()
+        elif choice == "6":
             print("\n  Bye!\n")
             break
         else:
@@ -181,3 +195,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

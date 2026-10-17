@@ -1,0 +1,12 @@
+# Smithery MCP Server Configuration
+# https://smithery.ai
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+  commandFunction: |-
+    (config) => ({
+      command: 'python',
+      args: ['server.py']
+    })

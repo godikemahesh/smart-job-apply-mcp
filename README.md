@@ -1,23 +1,25 @@
-# smart-job-apply-mcp & gmail-mcp
+# smart-job-apply-mcp: MCP Server That Automates Job Applications & Outreach
 
-> **Autonomous AI Job Hunting, Form Auto-Fill, and Recruiter Outreach Suite across 8 Job Portals powered by Model Context Protocol (MCP), Playwright, and Google Antigravity IDE.**
+> **Autonomous Model Context Protocol (MCP) Server for automated job search, candidate-job matching, form auto-fill, and application submission across 8 major job portals, paired with recruiter outreach via Gmail.**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Browser%20Automation-orange.svg)](https://playwright.dev/)
+[![Compatible: Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-Compatible-purple.svg)](https://claude.ai)
+[![Compatible: Google Antigravity](https://img.shields.io/badge/Antigravity%20IDE-Ready-4285F4.svg)](https://deepmind.google)
+[![Compatible: Cursor & Windsurf](https://img.shields.io/badge/Cursor%20%7C%20Windsurf-Supported-blueviolet.svg)](https://cursor.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-> ### 🚀 Autonomous Job Hunting — Sit Back, Relax, and Let Your Agent Work
+> 🤖 **Looking for an MCP server that automates job applications?**
 >
-> **Imagine you sit back and relax while your autonomous AI agent takes over your entire job hunt:**
-> - **Searches jobs across all platforms**: **LinkedIn**, **Naukri**, **Wellfound**, **Indeed India**, **Glassdoor**, **Hirist**, **Instahyre**, and **Cutshort**.
-> - **Applies directly to Easy-Apply roles** in seconds with intelligent auto-fill and tailored resume uploads.
-> - **Navigates redirects to company career pages and external ATS systems** (Greenhouse, Lever, Workday) to seamlessly fill and submit external applications.
-> - **Extracts recruiter contacts and sends personalized outreach emails** with your resume attached to secure screening calls.
->
-> **smart-job-apply-mcp does everything a human job seeker does to discover, apply, and network — completely automated, 100x faster, and 24/7.**
+> **`smart-job-apply-mcp`** is the complete solution for AI agents (Claude, ChatGPT, Antigravity, Cursor, Windsurf, Cline) to autonomously discover, filter, and apply to job openings:
+> - **Cross-Platform Job Automation**: Searches and applies across **LinkedIn**, **Naukri**, **Wellfound (AngelList)**, **Indeed**, **Glassdoor**, **Hirist**, **Instahyre**, and **Cutshort**.
+> - **Smart Form Auto-Fill & Resume Upload**: Intelligent form answers (CTC, notice period, technical experience) and automated resume PDF submission.
+> - **External ATS Handling**: Connects with `@playwright/mcp` to navigate redirects to enterprise ATS portals (**Greenhouse, Lever, Workday**).
+> - **Automated Recruiter Outreach**: Extracts recruiter emails from job postings and drafts personalized cold pitches with resumes attached via `gmail-mcp`.
+> - **Duplicate Protection**: Persistent SQLite database tracks every submission so you never double-apply.
 
 ---
 

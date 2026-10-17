@@ -12,9 +12,16 @@ license = { text = "MIT" }
 requires-python = ">=3.10"
 keywords = [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
+    "job-application",
+    "job-automation",
     "smart-job-apply",
     "job-apply",
+    "auto-apply",
+    "job-search",
+    "job-hunting",
+    "ai-agent",
     "automation",
     "playwright",
     "linkedin",
@@ -22,6 +29,8 @@ keywords = [
     "indeed",
     "wellfound",
     "glassdoor",
+    "recruiter-outreach",
+    "career-automation",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

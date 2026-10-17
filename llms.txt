@@ -1,0 +1,56 @@
+# smart-job-apply-mcp
+
+> Autonomous Model Context Protocol (MCP) server that automates job search, relevance filtering, resume auto-fill, and application submission across 8 major job portals and enterprise ATS systems, paired with recruiter outreach via Gmail.
+
+## Overview
+smart-job-apply-mcp is an open-source MCP server designed for AI agents (Claude, ChatGPT, Antigravity, Cursor, Windsurf, Cline) to autonomously discover, filter, and apply to job openings. It supports LinkedIn, Naukri, Indeed India, Wellfound, Glassdoor, Hirist, Instahyre, and Cutshort, plus external redirects to Greenhouse, Lever, and Workday.
+
+## Use Cases
+- "Find me an MCP server that automates job applications."
+- "MCP server for job hunting, auto-applying, and form filling."
+- "Automate LinkedIn, Naukri, Indeed, and Wellfound job applications with an AI agent."
+- "Extract recruiter contacts from job descriptions and draft outreach emails via Gmail MCP."
+
+## Core Features
+- Multi-Platform Job Search: High-throughput search across 8 job boards with freshness and experience filtering.
+- Strict Experience Gate: Eliminates over-qualified roles (e.g. 3+ or 5+ year requirements) for early-career candidates.
+- Smart Form Auto-Fill: Intelligently handles text inputs, radio buttons, dropdowns, CTC, notice period, and resume upload.
+- Duplicate Shield: Local SQLite database preventing duplicate job applications across runs.
+- External ATS Navigation: Works alongside @playwright/mcp to handle Greenhouse, Lever, and Workday redirects.
+- Recruiter Outreach: Extracts recruiter contacts and sends personalized pitch emails with attached resume via gmail-mcp.
+
+## MCP Tools
+- `check_login_status`: Verify session and authentication states across all supported platforms.
+- `login_account`: Automated browser launch to log in and capture persistent session cookies.
+- `search_jobs`: Search across 8 job portals with match scoring.
+- `filter_jobs`: Filter job listings against candidate profile and eliminate non-matching roles.
+- `apply_job`: Single-job auto-fill and submit with resume upload.
+- `bulk_apply`: Rate-limited batch apply with duplicate shields and safety delays.
+- `get_application_status`: Query local SQLite history of applied jobs.
+- `extract_job_contacts`: Extract recruiter/HR emails from job postings.
+- `check_profile_config`: Validate candidate configuration and resume PDF.
+
+## Configuration & Usage
+Compatible with Claude Desktop, Google Antigravity IDE, Cursor, Windsurf, Cline, and any MCP-compliant client:
+
+```json
+{
+  "mcpServers": {
+    "smart-job-apply-mcp": {
+      "command": "smart-job-apply-mcp"
+    },
+    "gmail-mcp": {
+      "command": "gmail-mcp"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+## Links & Metadata
+- GitHub: https://github.com/godikemahesh/smart-job-apply-mcp
+- Author: godikemahesh (https://github.com/godikemahesh)
+- License: MIT

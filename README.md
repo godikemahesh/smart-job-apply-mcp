@@ -8,6 +8,7 @@
 [![Compatible: Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-Compatible-purple.svg)](https://claude.ai)
 [![Compatible: Google Antigravity](https://img.shields.io/badge/Antigravity%20IDE-Ready-4285F4.svg)](https://deepmind.google)
 [![Compatible: Cursor & Windsurf](https://img.shields.io/badge/Cursor%20%7C%20Windsurf-Supported-blueviolet.svg)](https://cursor.com)
+[![M8ven Score](https://m8ven.ai/badge/mcp/godikemahesh-smart-job-apply-mcp-1jp3wq?v=f4e0d438af4159967ad264233b6c1ec1)](https://m8ven.ai/mcp/godikemahesh-smart-job-apply-mcp-1jp3wq?s=readme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
